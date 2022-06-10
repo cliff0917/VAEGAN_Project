@@ -38,11 +38,11 @@ model_type = args.model_type # 'cvae' or 'vae'
 # global_path = "/home/csie2020/p76091543/Plearning_song/"
 # this_path = "/home/csie2020/p76091543/VAE_Project/"
 global_path = "/home/p76091543/Plearning_song/"
-this_path = "/home/p76091543/VAE_Project/"
+this_path = "/home/p76091543/VAEGAN_Project/"
 dataset_path = "/SSD/song/"
 
-model_mat_path = this_path + f'vae_mat/{dataset}/resnet.mat'
-attr_mat_path = this_path + f'vae_mat/{dataset}/attr.mat'
+model_mat_path = this_path + f'vaegan_mat/{dataset}/resnet.mat'
+attr_mat_path = this_path + f'vaegan_mat/{dataset}/attr.mat'
 print('model_mat_path:', model_mat_path)
 print('attr_mat_path:', attr_mat_path)
 
