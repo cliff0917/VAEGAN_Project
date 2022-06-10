@@ -10,7 +10,7 @@ from torchvision.transforms import ToTensor
 import os
 import argparse
 import vaegan_models as model
-from main import config
+from config import *
 
 # set the random seed
 def same_seeds(seed):
@@ -25,7 +25,6 @@ def same_seeds(seed):
 
 same_seeds(2000)
 # torch.cuda.set_device('cuda:1')
-device = torch.device('cuda')
 
 parser = argparse.ArgumentParser(description="make_mat")
 parser.add_argument("--model_type", type=str, default="cvae")
@@ -219,7 +218,7 @@ def correct_label(label, convert_dict):
 
 
 trainer = model.TrainerGAN(config)
-G_path = "checkpoints/2022-06-10_11-05-12_cvae/D_14.pth"
+E_path = "checkpoints/2022-06-10_14-16-32_cvae/E_39.pth"
 model = trainer.inference
 
 # model = torch.load(f"vae_pt/{dataset}/best_model.pt")
@@ -240,8 +239,10 @@ elif model_type == 'cvae':
     # attr_test_tmp.astype(float)
     origin_seen_attr = torch.from_numpy(attr_train_tmp).float().to(device)
     origin_unseen_attr = torch.from_numpy(attr_test_tmp).float().to(device)
-    _, seen_mu, _ = model(seen_data, origin_seen_attr)
-    _, unseen_mu, _ = model(unseen_data, origin_unseen_attr)
+    # _, seen_mu, _ = model(E_path, seen_data, origin_seen_attr)
+    # _, unseen_mu, _ = model(E_path, unseen_data, origin_unseen_attr)
+    seen_mu = model(E_path, seen_data, origin_seen_attr)
+    unseen_mu = model(E_path, unseen_data, origin_unseen_attr)
 
 
 seen_mu = seen_mu.cpu().detach().numpy()

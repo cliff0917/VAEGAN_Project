@@ -333,10 +333,9 @@ class TrainerGAN():
             # torchvision.utils.save_image(f_imgs_sample, filename, nrow=10)
             # logging.info(f'Save some sample to {filename}.')
 
-            self.G.train()
-
             if (e+1) % 5 == 0 or e == 0:
                 # save the checkpoints.
+                torch.save(self.E.state_dict(), os.path.join(self.ckpt_dir, f'E_{e}.pth'))
                 torch.save(self.G.state_dict(), os.path.join(self.ckpt_dir, f'G_{e}.pth'))
                 torch.save(self.D.state_dict(), os.path.join(self.ckpt_dir, f'D_{e}.pth'))
             
