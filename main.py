@@ -35,23 +35,18 @@ def same_seeds(seed):
 
 same_seeds(2000)
 
-
 # ----- set parameter
 config['dataset'] = 'AWA2'
 config['model_type'] = 'cvae'
 
-if config['model_type'] == 'vaegan':
-        best_model_path = f"vaegan_pt/{config['dataset']}/best_model_vae.pt"
-        last_model_path = f"vaegan_pt/{config['dataset']}/last_model_vae.pt"
-elif config['model_type'] == 'cvae':
-    best_model_path = f"vaegan_pt/{config['dataset']}/best_model_cvae.pt"
-    last_model_path = f"vaegan_pt/{config['dataset']}/last_model_cvae.pt"
-
+# best_model_path = f"vaegan_pt/{config['dataset']}/best_model_cvae.pt"
+# last_model_path = f"vaegan_pt/{config['dataset']}/last_model_cvae.pt"
 
 # set path
 # global_path = "/home/csie2020/p76091543/Plearning_song/"
+home_dir = os.path.expanduser("~") + '/'
+global_path = home_dir + "Plearning_song/"
 
-global_path = "/home/p76091543/Plearning_song/"
 resnet101_path = "resnet_direct_2048/"
 npy_path = global_path + f"mat_and_model/{config['dataset']}/npy_file/" + resnet101_path
 
@@ -124,15 +119,11 @@ criterion = nn.MSELoss(reduction='mean')
 
 # model train
 trainer = model.TrainerGAN(config)
-# trainer.train()
+trainer.train()
 
 # model inference
 # G_path = "checkpoints/2022-06-10_11-05-12_cvae/D_14.pth"
 # trainer.inference(G_path)
-
-
-
-
 
 # trainer = model.TrainerGAN(config)
 # G_path = "checkpoints/2022-06-10_11-05-12_cvae/D_14.pth"

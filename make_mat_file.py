@@ -37,12 +37,21 @@ model_type = args.model_type # 'cvae' or 'vae'
 
 # global_path = "/home/csie2020/p76091543/Plearning_song/"
 # this_path = "/home/csie2020/p76091543/VAE_Project/"
-global_path = "/home/p76091543/Plearning_song/"
-this_path = "/home/p76091543/VAEGAN_Project/"
-dataset_path = "/SSD/song/"
+home_dir = os.path.expanduser("~")
 
-model_mat_path = this_path + f'vaegan_mat/{dataset}/resnet.mat'
-attr_mat_path = this_path + f'vaegan_mat/{dataset}/attr.mat'
+# global_path is plearning path
+global_path = os.path.join(home_dir, 'Plearning_song/')
+gan_path = os.path.join(home_dir, "VAEGAN_Project/")
+
+if home_dir == "/home/csie2020/p76091543":
+    dataset_path = os.path.join(global_path, "data/")
+else:
+    dataset_path = "/SSD/song/"
+
+dataset_path = os.path.join(global_path, "data/")
+
+model_mat_path = gan_path + f'vaegan_mat/{dataset}/resnet.mat'
+attr_mat_path = gan_path + f'vaegan_mat/{dataset}/attr.mat'
 print('model_mat_path:', model_mat_path)
 print('attr_mat_path:', attr_mat_path)
 
@@ -51,7 +60,7 @@ print('attr_mat_path:', attr_mat_path)
 # classname = pd.read_csv(
 #     f'{global_path}/data/{dataset}/classes.txt', header=None, sep='\t')
 classname = pd.read_csv(
-    dataset_path + f'{dataset}/classes.txt', header=None, sep='\t')
+    dataset_path + f'/{dataset}/classes.txt', header=None, sep='\t')
 
 if dataset == 'SUN':
     class_attr_shape = (102, )
@@ -88,9 +97,9 @@ npy_path = global_path + f"mat_and_model/{dataset}/npy_file/" + resnet101_path
 # train_dir = f'{global_path}/data/{dataset}/IMG_backoff/train'
 # val_dir = f'{global_path}/data/{dataset}/IMG_backoff/val'
 # test_dir = f'{global_path}/data/{dataset}/IMG_backoff/test'
-train_dir = f'{dataset_path}/{dataset}/IMG_backoff/train'
-val_dir = f'{dataset_path}/{dataset}/IMG_backoff/val'
-test_dir = f'{dataset_path}/{dataset}/IMG_backoff/test'
+train_dir = f'{dataset_path}' + f'{dataset}/IMG_backoff/train'
+val_dir = f'{dataset_path}' + f'{dataset}/IMG_backoff/val'
+test_dir = f'{dataset_path}' + f'{dataset}/IMG_backoff/test'
 image_size = 224
 
 
