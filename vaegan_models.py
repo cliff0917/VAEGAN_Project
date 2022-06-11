@@ -3,6 +3,7 @@ import glob
 import random
 from datetime import datetime
 from sqlite3 import ProgrammingError
+from venv import create
 
 import torch
 import torch.nn as nn
@@ -10,7 +11,7 @@ import torch.nn.functional as F
 import torchvision
 import torchvision.transforms as transforms
 from torch import optim
-from torch.autograd import Variable
+from torch.autograd import Variable, grad
 from torch.utils.data import Dataset, DataLoader
 
 import matplotlib.pyplot as plt
@@ -187,7 +188,26 @@ class TrainerGAN():
         self.G.train()
         self.D.train()
     
-    def gp(self):
+    def gp(self, real_imgs, fake_imgs):
+        bs = real_imgs.size(0)
+
+        alpha = torch.rand(bs, 1)
+        alpha = alpha.expand(real_imgs.size())
+        alpha = alpha.to(device)
+
+        interpolates = alpha * real_imgs + ((1 - alpha) * fake_imgs)
+        interpolates = interpolates.to(device)
+        interpolates = Variable(interpolates)
+
+        disc_interpolates = self.D(interpolates)
+
+        gradients = grad(outputs=disc_interpolates, inputs=interpolates,
+                         grad_outputs=torch.ones(disc_interpolates.size()).to(device),
+                         create_graph=True, retain_graph=True, only_inputs=True)[0]
+
+        gradient_penalty = ((gradients.norm(2, dim=1) - 1) ** 2).mean() * self.config['LAMBDA']
+        return gradient_penalty
+
         """
         Implement gradient penalty function
         """
@@ -274,9 +294,13 @@ class TrainerGAN():
                     loss_D = -torch.mean(r_logit) + torch.mean(f_logit) + gradient_penalty
                 """
                 # Loss for discriminator
-                r_loss = self.loss(r_logit, r_label)
-                f_loss = self.loss(f_logit, f_label)
-                loss_D = (r_loss + f_loss) / 2
+                # r_loss = self.loss(r_logit, r_label)
+                # f_loss = self.loss(f_logit, f_label)
+                # loss_D = (r_loss + f_loss) / 2
+                
+                # wgan-gp
+                gradient_penalty = self.gp(r_imgs, f_imgs)                
+                loss_D = -torch.mean(r_logit) + torch.mean(f_logit) + gradient_penalty
 
                 # Discriminator backwarding
                 self.D.zero_grad()
