@@ -92,10 +92,11 @@ class Discriminator_D1(nn.Module):
     def __init__(self, config):
         super(Discriminator_D1, self).__init__()
         
-        if config['model_type'] == 'cvae':
-            in_dim = config['visual_dim'] + config['attr_dim']
-        else:
-            in_dim = config['visual_dim']
+        # if config['model_type'] == 'cvae':
+        #     in_dim = config['visual_dim'] + config['attr_dim']
+        # else:
+        #     in_dim = config['visual_dim']
+        in_dim = config['visual_dim']
 
         self.fc1 = nn.Linear(in_dim, config['d_hdim'])
         self.fc2 = nn.Linear(config['d_hdim'], 1)
@@ -103,8 +104,11 @@ class Discriminator_D1(nn.Module):
         self.sigmoid = nn.Sigmoid()
 
         self.apply(weight_init)
-    def forward(self, x, att):
-        h = torch.cat((x, att), dim=1)
+    def forward(self, x, att=None):
+        if att is None:
+            h = x
+        else:
+            h = torch.cat((x, att), dim=1)
         self.hidden = self.lrelu(self.fc1(h))
         h = self.fc2(self.hidden)
         h = self.sigmoid(h)
@@ -188,7 +192,7 @@ class TrainerGAN():
         self.G.train()
         self.D.train()
     
-    def gp(self, real_imgs, fake_imgs):
+    def gp(self, real_imgs, fake_imgs, att):
         bs = real_imgs.size(0)
 
         alpha = torch.rand(bs, 1)
@@ -197,9 +201,10 @@ class TrainerGAN():
 
         interpolates = alpha * real_imgs + ((1 - alpha) * fake_imgs)
         interpolates = interpolates.to(device)
-        interpolates = Variable(interpolates)
+        interpolates = Variable(interpolates, requires_grad=True)
 
         disc_interpolates = self.D(interpolates)
+        # disc_interpolates = self.D(interpolates, att)
 
         gradients = grad(outputs=disc_interpolates, inputs=interpolates,
                          grad_outputs=torch.ones(disc_interpolates.size()).to(device),
@@ -257,8 +262,8 @@ class TrainerGAN():
                 # ***********
                 # * Train D *
                 # ***********
-                input_visual = Variable(torch.randn(bs, self.config['visual_dim'])).to(device)
-                input_att = Variable(torch.randn(bs, self.config['attr_dim'])).to(device)
+                # input_visual = Variable(torch.randn(bs, self.config['visual_dim'])).to(device)
+                # input_att = Variable(torch.randn(bs, self.config['attr_dim'])).to(device)
 
                 # cvae
                 z = Variable(torch.randn(bs, self.config['visual_dim'] + self.config['attr_dim'])).to(device)
@@ -271,16 +276,11 @@ class TrainerGAN():
                 r_label = torch.ones((bs)).unsqueeze(dim=1).to(device)
                 f_label = torch.zeros((bs)).unsqueeze(dim=1).to(device)
 
-                # if self.config['encoded_noise'] == True:
-                #     z, _, _ = self.E(input_visual, input_att)
-                # else:
-                #     noise = torch.FloatTensor(self.config['batch_size'], self.config['nz'])
-                #     noise.normal_(0,1)
-                #     z = Variable(noise).to(device)
-
                 # Discriminator forwarding
-                r_logit = self.D(r_imgs, att)
-                f_logit = self.D(f_imgs, att)
+                # r_logit = self.D(r_imgs, att)
+                # f_logit = self.D(f_imgs, att)
+                r_logit = self.D(r_imgs)
+                f_logit = self.D(f_imgs)
                 
                 """
                 NOTE FOR SETTING DISCRIMINATOR LOSS:
@@ -299,7 +299,7 @@ class TrainerGAN():
                 # loss_D = (r_loss + f_loss) / 2
                 
                 # wgan-gp
-                gradient_penalty = self.gp(r_imgs, f_imgs)                
+                gradient_penalty = self.gp(r_imgs, f_imgs, att)                
                 loss_D = -torch.mean(r_logit) + torch.mean(f_logit) + gradient_penalty
 
                 # Discriminator backwarding
@@ -326,7 +326,8 @@ class TrainerGAN():
                     loss_E = self.loss_cvae(f_imgs, r_imgs, mu, logvar, self.mse, att)
                     
                     # Generator forwarding
-                    f_logit = self.D(f_imgs, att)
+                    # f_logit = self.D(f_imgs, att)
+                    f_logit = self.D(f_imgs)
 
                     """
                     NOTE FOR SETTING LOSS FOR GENERATOR:
@@ -365,36 +366,12 @@ class TrainerGAN():
             
         logging.info('Finish training')
    
-    def inference(self, G_path, data, attr):
-        self.E.load_state_dict(torch.load(G_path))
+    def inference(self, E_path, data, attr):
+        self.E.load_state_dict(torch.load(E_path))
         self.E.to(device)
         self.E.eval()
         _, mu, _ = self.E(data, attr)
         return mu
-
-    # def inference(self, G_path, n_generate=1000, n_output=30, show=False):
-    #     """
-    #     1. G_path is the path for Generator ckpt
-    #     2. You can use this function to generate final answer
-    #     """
-
-    #     self.G.load_state_dict(torch.load(G_path))
-    #     self.G.to(device)
-    #     self.G.eval()
-    #     z = Variable(torch.randn(n_generate, self.config["z_dim"])).to(device)
-    #     imgs = (self.G(z).data + 1) / 2.0
-        
-    #     os.makedirs('output', exist_ok=True)
-    #     for i in range(n_generate):
-    #         torchvision.utils.save_image(imgs[i], f'output/{i+1}.jpg')
-        
-    #     if show:
-    #         row, col = n_output//10 + 1, 10
-    #         grid_img = torchvision.utils.make_grid(imgs[:n_output].cpu(), nrow=row)
-    #         plt.figure(figsize=(row, col))
-    #         plt.imshow(grid_img.permute(1, 2, 0))
-    #         plt.show()
-
 
 
 

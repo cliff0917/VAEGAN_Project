@@ -227,7 +227,7 @@ def correct_label(label, convert_dict):
 
 
 trainer = model.TrainerGAN(config)
-E_path = "checkpoints/2022-06-10_14-16-32_cvae/E_39.pth"
+E_path = "/home/csie2020/p76091543/VAEGAN_Project/checkpoints/2022-06-12_05-07-18_cvae/E_249.pth"
 model = trainer.inference
 
 # model = torch.load(f"vae_pt/{dataset}/best_model.pt")

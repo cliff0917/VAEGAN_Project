@@ -20,7 +20,7 @@ import argparse
 import logging
 import vaegan_models as model
 from config import *
-# os.environ["CUDA_VISIBLE_DEVICES"]=""
+
 
 # set the random seed
 def same_seeds(seed):
@@ -121,13 +121,6 @@ criterion = nn.MSELoss(reduction='mean')
 trainer = model.TrainerGAN(config)
 trainer.train()
 
-# model inference
-# G_path = "checkpoints/2022-06-10_11-05-12_cvae/D_14.pth"
-# trainer.inference(G_path)
-
-# trainer = model.TrainerGAN(config)
-# G_path = "checkpoints/2022-06-10_11-05-12_cvae/D_14.pth"
-# model = model.TrainerGAN.inference
 
 
 
