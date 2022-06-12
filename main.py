@@ -35,9 +35,14 @@ def same_seeds(seed):
 
 same_seeds(2000)
 
+parser = argparse.ArgumentParser(description="VAEGAN")
+parser.add_argument("--dataset", type=str, default="CUB")
+parser.add_argument("--model_type", type=str, default="cvae")
+args = parser.parse_args()
+
 # ----- set parameter
-config['dataset'] = 'AWA2'
-config['model_type'] = 'cvae'
+config['dataset'] = args.dataset
+config['model_type'] = args.model_type
 
 # best_model_path = f"vaegan_pt/{config['dataset']}/best_model_cvae.pt"
 # last_model_path = f"vaegan_pt/{config['dataset']}/last_model_cvae.pt"
@@ -55,16 +60,19 @@ attr_mat_path = global_path + f"mat_and_model/{config['dataset']}/" + "two_phase
 
 if config['dataset'] == 'SUN':
     config['attr_dim'] = 102
+    config['latent_dim'] = 102
     config['class_num'] = 717
     config['seen_class_num'] = 645
     config['unseen_class_num'] = 72
 elif config['dataset'] == 'CUB':
     config['attr_dim'] = 312
+    config['latent_dim'] = 312
     config['class_num'] = 200
     config['seen_class_num'] = 150
     config['unseen_class_num'] = 50
 elif config['dataset'] == 'AWA2':
     config['attr_dim'] = 85
+    config['latent_dim'] = 85
     config['class_num'] = 50
     config['seen_class_num'] = 40
     config['unseen_class_num'] = 10

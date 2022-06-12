@@ -11,7 +11,7 @@ config = {
         'dataset' : 'AWA2',
         'latent_dim': 85,               # size of latent code
         'attr_dim' : 85,                # size of attr
-        'nz': 85,                       # size of the latent z vector
+        # 'nz': 85,                       # size of the latent z vector
         'class_num' : 50,               # number of total classes
         'seen_class_num' : 40,          # number of seen classes
         'unseen_class_num' : 10,        # number of unseen classes
@@ -19,7 +19,7 @@ config = {
         'visual_dim': 2048,             # size of the visual feature
         'enc_hidden_dims' : [2048, 1024],   # hidden dims of encoder
         'dec_hidden_dims' : [1024, 2048],   # hidden dims of decoder
-        'epochs' : 600,
+        'epochs' : 200,
         'lr': 1e-4,
         'workspace_dir': '.',
         'encoded_noise': True,

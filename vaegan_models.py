@@ -174,8 +174,8 @@ class TrainerGAN():
 
         # update dir by time
         time = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-        self.log_dir = os.path.join(self.log_dir, time+f'_{self.config["model_type"]}')
-        self.ckpt_dir = os.path.join(self.ckpt_dir, time+f'_{self.config["model_type"]}')
+        self.log_dir = os.path.join(self.log_dir, self.config['dataset'], time+f'_{self.config["model_type"]}')
+        self.ckpt_dir = os.path.join(self.ckpt_dir, self.config['dataset'], time+f'_{self.config["model_type"]}')
         os.makedirs(self.log_dir)
         os.makedirs(self.ckpt_dir)
         
