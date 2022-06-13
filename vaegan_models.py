@@ -191,6 +191,9 @@ class TrainerGAN():
         self.E.train()
         self.G.train()
         self.D.train()
+
+        self.best_e_loss = 10000
+        self.tmp_e_loss = 10000
     
     def gp(self, real_imgs, fake_imgs, att):
         bs = real_imgs.size(0)
@@ -239,8 +242,7 @@ class TrainerGAN():
         for e, epoch in enumerate(range(self.config["epochs"])):
             progress_bar = tqdm(self.dataloader)
             progress_bar.set_description(f"Epoch {e+1}")
-            best_e_loss = 10000
-            tmp_e_loss = 10000
+            
             for i, (data, att) in enumerate(progress_bar):
                 imgs = data.to(device)
                 att = att.float().to(device)
@@ -264,8 +266,6 @@ class TrainerGAN():
                 f_label = torch.zeros((bs)).unsqueeze(dim=1).to(device)
 
                 # Discriminator forwarding
-                # r_logit = self.D(r_imgs, att)
-                # f_logit = self.D(f_imgs, att)
                 r_logit = self.D(r_imgs)
                 f_logit = self.D(f_imgs)
                 
@@ -280,10 +280,6 @@ class TrainerGAN():
                     gradient_penalty = self.gp(r_imgs, f_imgs)
                     loss_D = -torch.mean(r_logit) + torch.mean(f_logit) + gradient_penalty
                 """
-                # Loss for discriminator
-                # r_loss = self.loss(r_logit, r_label)
-                # f_loss = self.loss(f_logit, f_label)
-                # loss_D = (r_loss + f_loss) / 2
                 
                 # wgan-gp
                 gradient_penalty = self.gp(r_imgs, f_imgs, att)                
@@ -312,9 +308,7 @@ class TrainerGAN():
                     f_imgs = self.G(z, att)
                     loss_E = self.loss_cvae(f_imgs, r_imgs, mu, logvar, self.mse, att)
                     
-                    if loss_E.item() < best_e_loss:
-                        tmp_e_loss = loss_E.item()
-                    
+                    self.tmp_e_loss += loss_E.item()
                     # Generator forwarding
                     # f_logit = self.D(f_imgs, att)
                     f_logit = self.D(f_imgs)
@@ -342,23 +336,10 @@ class TrainerGAN():
                     progress_bar.set_postfix(loss_G=loss_G.item(), loss_D=loss_D.item(), loss_E=loss_E.item())
                 self.steps += 1
             
-            # self.G.eval()
-            # f_imgs_sample = (self.G(self.z_samples).data + 1) / 2.0
-            # filename = os.path.join(self.log_dir, f'Epoch_{epoch+1:03d}.jpg')
-            # torchvision.utils.save_image(f_imgs_sample, filename, nrow=10)
-            # logging.info(f'Save some sample to {filename}.')
+            if self.best_e_loss > self.tmp_e_loss:
+                torch.save(self.E.state_dict(), os.path.join(self.ckpt_dir, f'E_{e+1}.pth'))
+                self.best_e_loss = self.tmp_e_loss
 
-            # if (e+1) % 5 == 0 or e == 0:
-                # save the checkpoints.
-                # torch.save(self.E.state_dict(), os.path.join(self.ckpt_dir, f'E_{e}.pth'))
-                # torch.save(self.G.state_dict(), os.path.join(self.ckpt_dir, f'G_{e}.pth'))
-                # torch.save(self.D.state_dict(), os.path.join(self.ckpt_dir, f'D_{e}.pth'))
-            
-            if best_e_loss > tmp_e_loss:
-                torch.save(self.E.state_dict(), os.path.join(self.ckpt_dir, f'E_{e}.pth'))
-                best_e_loss = tmp_e_loss
-
-            
         logging.info('Finish training')
    
     def inference(self, E_path, data, attr):
