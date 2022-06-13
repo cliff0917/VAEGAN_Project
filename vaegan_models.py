@@ -154,8 +154,8 @@ class TrainerGAN():
         self.opt_G = torch.optim.Adam(self.G.parameters(), lr=self.config["lr"], betas=(0.5, 0.999))
 
         self.dataloader = None
-        self.log_dir = os.path.join(self.config["workspace_dir"], 'logs')
-        self.ckpt_dir = os.path.join(self.config["workspace_dir"], 'checkpoints')
+        self.log_dir = os.path.join(self.config["workspace_dir"], 'method2', 'logs')
+        self.ckpt_dir = os.path.join(self.config["workspace_dir"], 'method2', 'checkpoints')
 
         FORMAT = '%(asctime)s - %(levelname)s: %(message)s'
         logging.basicConfig(level=logging.INFO, 
@@ -227,33 +227,20 @@ class TrainerGAN():
         se: semantic embedding
         """
         mse = criterion(recon_x, x)
-        # KLD_element = (mu - se).pow(2).add_(logvar.exp()).mul_(-1).add(1).add_(logvar)
-        KLD_element = mu.pow(2).add_(logvar.exp()).mul_(-1).add(1).add_(logvar)
+        KLD_element = (mu - se).pow(2).add_(logvar.exp()).mul_(-1).add(1).add_(logvar)
+        # KLD_element = mu.pow(2).add_(logvar.exp()).mul_(-1).add(1).add_(logvar)
 
         KLD = torch.sum(KLD_element).mul_(-0.5)
         return mse + KLD
     
-    def loss_cvae(self, recon_x, x, mu, logvar, criterion, se):
-        """
-        recon_x: generating images
-        x: origin images
-        mu: latent mean
-        logvar: latent log variance
-        se: semantic embedding
-        """
-        mse = criterion(recon_x, x)
-        KLD_element = mu.pow(2).add_(logvar.exp()).mul_(-1).add(1).add_(logvar)
-
-        KLD = torch.sum(KLD_element).mul_(-0.5)
-        return mse + KLD
-
-
     def train(self):
         self.prepare_environment()
 
         for e, epoch in enumerate(range(self.config["epochs"])):
             progress_bar = tqdm(self.dataloader)
             progress_bar.set_description(f"Epoch {e+1}")
+            best_e_loss = 10000
+            tmp_e_loss = 10000
             for i, (data, att) in enumerate(progress_bar):
                 imgs = data.to(device)
                 att = att.float().to(device)
@@ -325,6 +312,9 @@ class TrainerGAN():
                     f_imgs = self.G(z, att)
                     loss_E = self.loss_cvae(f_imgs, r_imgs, mu, logvar, self.mse, att)
                     
+                    if loss_E.item() < best_e_loss:
+                        tmp_e_loss = loss_E.item()
+                    
                     # Generator forwarding
                     # f_logit = self.D(f_imgs, att)
                     f_logit = self.D(f_imgs)
@@ -358,11 +348,16 @@ class TrainerGAN():
             # torchvision.utils.save_image(f_imgs_sample, filename, nrow=10)
             # logging.info(f'Save some sample to {filename}.')
 
-            if (e+1) % 5 == 0 or e == 0:
+            # if (e+1) % 5 == 0 or e == 0:
                 # save the checkpoints.
+                # torch.save(self.E.state_dict(), os.path.join(self.ckpt_dir, f'E_{e}.pth'))
+                # torch.save(self.G.state_dict(), os.path.join(self.ckpt_dir, f'G_{e}.pth'))
+                # torch.save(self.D.state_dict(), os.path.join(self.ckpt_dir, f'D_{e}.pth'))
+            
+            if best_e_loss > tmp_e_loss:
                 torch.save(self.E.state_dict(), os.path.join(self.ckpt_dir, f'E_{e}.pth'))
-                torch.save(self.G.state_dict(), os.path.join(self.ckpt_dir, f'G_{e}.pth'))
-                torch.save(self.D.state_dict(), os.path.join(self.ckpt_dir, f'D_{e}.pth'))
+                best_e_loss = tmp_e_loss
+
             
         logging.info('Finish training')
    

@@ -29,11 +29,16 @@ same_seeds(2000)
 parser = argparse.ArgumentParser(description="make_mat")
 parser.add_argument("--model_type", type=str, default="cvae")
 parser.add_argument("--dataset", type=str, default="AWA2")
+parser.add_argument("--E_path", type=str)
 args = parser.parse_args()
+
 
 # data config
 dataset = args.dataset
 model_type = args.model_type # 'cvae' or 'vae'
+
+config['dataset'] = dataset
+config['model_type'] = model_type
 
 # global_path = "/home/csie2020/p76091543/Plearning_song/"
 # this_path = "/home/csie2020/p76091543/VAE_Project/"
@@ -50,8 +55,8 @@ else:
 
 dataset_path = os.path.join(global_path, "data/")
 
-model_mat_path = gan_path + f'vaegan_mat/{dataset}/resnet.mat'
-attr_mat_path = gan_path + f'vaegan_mat/{dataset}/attr.mat'
+model_mat_path = gan_path + f'mat/{dataset}/resnet.mat'
+attr_mat_path = gan_path + f'mat/{dataset}/attr.mat'
 print('model_mat_path:', model_mat_path)
 print('attr_mat_path:', attr_mat_path)
 
@@ -62,41 +67,35 @@ print('attr_mat_path:', attr_mat_path)
 classname = pd.read_csv(
     dataset_path + f'/{dataset}/classes.txt', header=None, sep='\t')
 
-if dataset == 'SUN':
-    class_attr_shape = (102, )
-    class_attr_dim = 102
-    total_class_num = 717
-    seen_class_num = 645
-    unseen_class_num = 72
-elif dataset == 'CUB':
-    class_attr_shape = (312, )
-    class_attr_dim = 312
-    total_class_num = 200
-    seen_class_num = 150
-    unseen_class_num = 50
-elif dataset == 'AWA2':
-    class_attr_shape = (85, )
-    class_attr_dim = 85
-    total_class_num = 50
-    seen_class_num = 40
-    unseen_class_num = 10
-elif dataset == 'plant':
-    class_attr_shape = (46, )
-    class_attr_dim = 46
-    total_class_num = 38
-    seen_class_num = 25
-    unseen_class_num = 13
+if config['dataset'] == 'SUN':
+    config['attr_dim'] = 102
+    config['latent_dim'] = 102
+    config['class_num'] = 717
+    config['seen_class_num'] = 645
+    config['unseen_class_num'] = 72
+elif config['dataset'] == 'CUB':
+    config['attr_dim'] = 312
+    config['latent_dim'] = 312
+    config['class_num'] = 200
+    config['seen_class_num'] = 150
+    config['unseen_class_num'] = 50
+elif config['dataset'] == 'AWA2':
+    config['attr_dim'] = 85
+    config['latent_dim'] = 85
+    config['class_num'] = 50
+    config['seen_class_num'] = 40
+    config['unseen_class_num'] = 10
 
+
+
+total_class_num = config['seen_class_num'] + config['unseen_class_num']
+print(config['dataset'])
 resnet101_path = 'resnet_direct_2048/'
 
 npy_path = global_path + f"mat_and_model/{dataset}/npy_file/" + resnet101_path
 # model_mat_path = global_path + f"mat_and_model/{dataset}/" + "two_phase/mat/res_direct_2048.mat"
 # attr_mat_path = global_path + f"mat_and_model/{dataset}/" + "two_phase/mat/res_attr_direct_2048.mat"
 
-
-# train_dir = f'{global_path}/data/{dataset}/IMG_backoff/train'
-# val_dir = f'{global_path}/data/{dataset}/IMG_backoff/val'
-# test_dir = f'{global_path}/data/{dataset}/IMG_backoff/test'
 train_dir = f'{dataset_path}' + f'{dataset}/IMG_backoff/train'
 val_dir = f'{dataset_path}' + f'{dataset}/IMG_backoff/val'
 test_dir = f'{dataset_path}' + f'{dataset}/IMG_backoff/test'
@@ -227,7 +226,8 @@ def correct_label(label, convert_dict):
 
 
 trainer = model.TrainerGAN(config)
-E_path = "/home/csie2020/p76091543/VAEGAN_Project/checkpoints/2022-06-12_05-07-18_cvae/E_249.pth"
+# E_path = gan_path + "checkpoints/2022-06-12_05-07-18_cvae/E_249.pth"
+E_path = gan_path + args.E_path
 model = trainer.inference
 
 # model = torch.load(f"vae_pt/{dataset}/best_model.pt")
@@ -255,10 +255,10 @@ elif model_type == 'cvae':
 
 
 seen_mu = seen_mu.cpu().detach().numpy()
-seen_attr = make_average_attr(data_train, label_train, seen_class_num, seen_mu)
+seen_attr = make_average_attr(data_train, label_train, config['seen_class_num'], seen_mu)
 
 unseen_mu = unseen_mu.cpu().detach().numpy()
-unseen_attr = make_average_attr(data_test, label_test, unseen_class_num, unseen_mu)
+unseen_attr = make_average_attr(data_test, label_test, config['unseen_class_num'], unseen_mu)
 
 all_attr = assign_attr(seen_class, unseen_class, seen_attr, unseen_attr, total_class_num)
 seen_convert_dict, unseen_convert_dict = convert_dict(seen_class, unseen_class)
