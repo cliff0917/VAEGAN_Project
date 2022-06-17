@@ -154,8 +154,8 @@ class TrainerGAN():
         self.opt_G = torch.optim.Adam(self.G.parameters(), lr=self.config["lr"], betas=(0.5, 0.999))
 
         self.dataloader = None
-        self.log_dir = os.path.join(self.config["workspace_dir"], 'method2', 'logs')
-        self.ckpt_dir = os.path.join(self.config["workspace_dir"], 'method2', 'checkpoints')
+        self.log_dir = os.path.join(self.config["workspace_dir"], 'logs')
+        self.ckpt_dir = os.path.join(self.config["workspace_dir"], 'checkpoints')
 
         FORMAT = '%(asctime)s - %(levelname)s: %(message)s'
         logging.basicConfig(level=logging.INFO, 
@@ -192,8 +192,8 @@ class TrainerGAN():
         self.G.train()
         self.D.train()
 
-        self.best_e_loss = 10000
-        self.tmp_e_loss = 10000
+        self.max_e_loss = np.inf
+        self.tmp_e_loss = 0
     
     def gp(self, real_imgs, fake_imgs, att):
         bs = real_imgs.size(0)
@@ -242,6 +242,7 @@ class TrainerGAN():
         for e, epoch in enumerate(range(self.config["epochs"])):
             progress_bar = tqdm(self.dataloader)
             progress_bar.set_description(f"Epoch {e+1}")
+            self.tmp_e_loss = 0
             
             for i, (data, att) in enumerate(progress_bar):
                 imgs = data.to(device)
@@ -336,9 +337,9 @@ class TrainerGAN():
                     progress_bar.set_postfix(loss_G=loss_G.item(), loss_D=loss_D.item(), loss_E=loss_E.item())
                 self.steps += 1
             
-            if self.best_e_loss > self.tmp_e_loss:
+            if self.tmp_e_loss < self.max_e_loss and e > 50:
                 torch.save(self.E.state_dict(), os.path.join(self.ckpt_dir, f'E_{e+1}.pth'))
-                self.best_e_loss = self.tmp_e_loss
+                self.max_e_loss = self.tmp_e_loss
 
         logging.info('Finish training')
    

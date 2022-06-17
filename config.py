@@ -20,7 +20,7 @@ config = {
         'enc_hidden_dims' : [2048, 1024],   # hidden dims of encoder
         'dec_hidden_dims' : [1024, 2048],   # hidden dims of decoder
         'epochs' : 200,
-        'lr': 1e-4,
+        'lr': 1e-3,
         'workspace_dir': '.',
         'encoded_noise': True,
         'model_type': 'cvae',

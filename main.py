@@ -38,11 +38,17 @@ same_seeds(2000)
 parser = argparse.ArgumentParser(description="VAEGAN")
 parser.add_argument("--dataset", type=str, default="CUB")
 parser.add_argument("--model_type", type=str, default="cvae")
+parser.add_argument("--lr", type=float, default=1e-3)
+parser.add_argument("--w_dir", type=str, default="./")
+parser.add_argument("--n_critic", type=int, default=1)
 args = parser.parse_args()
 
 # ----- set parameter
 config['dataset'] = args.dataset
 config['model_type'] = args.model_type
+config['lr'] = args.lr
+config['workspace_dir'] = args.w_dir
+config['n_critic'] = args.n_critic
 
 # best_model_path = f"vaegan_pt/{config['dataset']}/best_model_cvae.pt"
 # last_model_path = f"vaegan_pt/{config['dataset']}/last_model_cvae.pt"
