@@ -41,6 +41,7 @@ parser.add_argument("--model_type", type=str, default="cvae")
 parser.add_argument("--lr", type=float, default=1e-3)
 parser.add_argument("--w_dir", type=str, default="./")
 parser.add_argument("--n_critic", type=int, default=1)
+parser.add_argument("--epochs", type=int, default=200)
 args = parser.parse_args()
 
 # ----- set parameter
@@ -49,6 +50,7 @@ config['model_type'] = args.model_type
 config['lr'] = args.lr
 config['workspace_dir'] = args.w_dir
 config['n_critic'] = args.n_critic
+config['epochs'] = args.epochs
 
 # best_model_path = f"vaegan_pt/{config['dataset']}/best_model_cvae.pt"
 # last_model_path = f"vaegan_pt/{config['dataset']}/last_model_cvae.pt"
@@ -133,8 +135,9 @@ criterion = nn.MSELoss(reduction='mean')
 
 # model train
 trainer = model.TrainerGAN(config)
-trainer.train()
+# trainer.train()
 
+trainer.train_cycle_vaegan()
 
 
 

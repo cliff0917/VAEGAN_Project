@@ -342,6 +342,109 @@ class TrainerGAN():
                 self.max_e_loss = self.tmp_e_loss
 
         logging.info('Finish training')
+    
+    def train_cycle_vaegan(self):
+        self.prepare_environment()
+
+        for e, epoch in enumerate(range(self.config["epochs"])):
+            progress_bar = tqdm(self.dataloader)
+            progress_bar.set_description(f"Epoch {e+1}")
+            self.tmp_e_loss = 0
+            
+            for i, (data, att) in enumerate(progress_bar):
+                imgs = data.to(device)
+                att = att.float().to(device)
+                bs = imgs.size(0)
+                
+                # ***********
+                # * Train D *
+                # ***********
+                z = Variable(torch.randn(bs, self.config['visual_dim'] + self.config['attr_dim'])).to(device)
+
+                # r_imgs = Variable(torch.cat((imgs, att), dim=1)).to(device)
+                r_imgs = Variable(imgs).to(device)
+                att = Variable(att).to(device)
+                f_z, _, _ = self.E(imgs, att)
+                f_imgs = self.G(f_z, att)
+                r_label = torch.ones((bs)).unsqueeze(dim=1).to(device)
+                f_label = torch.zeros((bs)).unsqueeze(dim=1).to(device)
+
+                # Discriminator forwarding
+                r_logit = self.D(r_imgs)
+                f_logit = self.D(f_imgs)
+                
+                # wgan-gp
+                gradient_penalty = self.gp(r_imgs, f_imgs, att)                
+                loss_D = -torch.mean(r_logit) + torch.mean(f_logit) + gradient_penalty
+
+                # Discriminator backwarding
+                self.D.zero_grad()
+                loss_D.backward()
+                self.opt_D.step()
+                """
+                Note FOR SETTING WEIGHT CLIP:
+                WGAN: below code
+                """
+                # for p in self.D.parameters():
+                #     p.data.clamp_(-self.config["clip_value"], self.config["clip_value"])
+
+                # ***********
+                # * Train VAE *
+                # ***********
+                if self.steps % self.config["n_critic"] == 0:
+                    # Generate some fake images
+                    # z = Variable(torch.randn(bs, self.config["z_dim"])).to(device)
+                    z, mu, logvar = self.E(r_imgs, att)
+                    f_imgs = self.G(z, att)
+                    loss_E = self.loss_cvae(f_imgs, r_imgs, mu, logvar, self.mse, att)
+                    
+                    self.tmp_e_loss += loss_E.item()
+                    # Generator forwarding
+                    # f_logit = self.D(f_imgs, att)
+                    f_logit = self.D(f_imgs)
+
+                    """
+                    NOTE FOR SETTING LOSS FOR GENERATOR:
+                    
+                    GAN: loss_G = self.loss(f_logit, r_label)
+                    WGAN: loss_G = -torch.mean(self.D(f_imgs))
+                    WGAN-GP: loss_G = -torch.mean(self.D(f_imgs))
+                    """
+                    # Loss for the generator.
+                    loss_G = self.loss(f_logit, r_label)
+
+                    # ***********
+                    # * Train VAE *
+                    # ***********
+                    z2, mu2, logvar2 = self.E(f_imgs, att)
+                    recons_imgs = self.G(z2, att)
+                    recons_loss_E = self.loss_cvae(recons_imgs, f_imgs, mu2, logvar2, self.mse, att)
+
+                    loss_E = recons_loss_E + loss_E
+                    ce_bce_loss = self.mse(z, z2)
+
+                    loss_G = loss_G + ce_bce_loss
+
+                    # Generator backwarding
+                    self.G.zero_grad()
+                    self.E.zero_grad()
+                    # ce_bce_loss.backward(retain_graph=True)
+                    loss_G.backward(retain_graph=True)
+                    # ce_bce_loss.backward(retain_graph=True)
+                    loss_E.backward()
+
+                    self.opt_G.step()
+                    self.opt_E.step()
+
+                if self.steps % 10 == 0:
+                    progress_bar.set_postfix(loss_G=loss_G.item(), loss_D=loss_D.item(), loss_E=loss_E.item(), ce_bce=ce_bce_loss.item())
+                self.steps += 1
+            
+            if self.tmp_e_loss < self.max_e_loss and e > 50:
+                torch.save(self.E.state_dict(), os.path.join(self.ckpt_dir, f'E_{e+1}.pth'))
+                self.max_e_loss = self.tmp_e_loss
+
+        logging.info('Finish training')
    
     def inference(self, E_path, data, attr):
         self.E.load_state_dict(torch.load(E_path))
