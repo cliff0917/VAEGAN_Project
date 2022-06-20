@@ -261,8 +261,8 @@ class TrainerGAN():
                 # r_imgs = Variable(torch.cat((imgs, att), dim=1)).to(device)
                 r_imgs = Variable(imgs).to(device)
                 att = Variable(att).to(device)
-                f_z, _, _ = self.E(imgs, att)
-                f_imgs = self.G(f_z, att)
+                f_z, _, _ = self.E(imgs)
+                f_imgs = self.G(f_z)
                 r_label = torch.ones((bs)).unsqueeze(dim=1).to(device)
                 f_label = torch.zeros((bs)).unsqueeze(dim=1).to(device)
 
@@ -305,8 +305,8 @@ class TrainerGAN():
                 if self.steps % self.config["n_critic"] == 0:
                     # Generate some fake images
                     # z = Variable(torch.randn(bs, self.config["z_dim"])).to(device)
-                    z, mu, logvar = self.E(r_imgs, att)
-                    f_imgs = self.G(z, att)
+                    z, mu, logvar = self.E(r_imgs)
+                    f_imgs = self.G(z)
                     loss_E = self.loss_cvae(f_imgs, r_imgs, mu, logvar, self.mse, att)
                     
                     self.tmp_e_loss += loss_E.item()
@@ -338,7 +338,8 @@ class TrainerGAN():
                 self.steps += 1
             
             if self.tmp_e_loss < self.max_e_loss and e > 50:
-                torch.save(self.E.state_dict(), os.path.join(self.ckpt_dir, f'E_{e+1}.pth'))
+                # torch.save(self.E.state_dict(), os.path.join(self.ckpt_dir, f'E_{e+1}.pth'))
+                torch.save(self.E.state_dict(), os.path.join(self.ckpt_dir, f'E.pth'))
                 self.max_e_loss = self.tmp_e_loss
 
         logging.info('Finish training')
