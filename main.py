@@ -135,9 +135,13 @@ criterion = nn.MSELoss(reduction='mean')
 
 # model train
 trainer = model.TrainerGAN(config)
-# trainer.train()
 
-trainer.train_cycle_vaegan()
+if config['model_type'] == 'cvae' or config['model_type'] == 'vae':
+    print("trainer.train()")
+    trainer.train()
+else:
+    print("trainer.train_cycle_vaegan()")
+    trainer.train_cycle_vaegan()
 
 
 
