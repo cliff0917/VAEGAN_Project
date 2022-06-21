@@ -239,8 +239,8 @@ unseen_data = torch.from_numpy(data_test).to(device)
 
 
 if model_type == 'vae':
-    _, seen_mu, _ = model(seen_data)
-    _, unseen_mu, _ = model(unseen_data)
+    seen_mu = model(E_path, seen_data)
+    unseen_mu = model(E_path, unseen_data)
 elif model_type == 'cvae':
     attr_train_tmp = attr_train
     attr_test_tmp = attr_test

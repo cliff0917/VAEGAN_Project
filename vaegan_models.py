@@ -236,6 +236,17 @@ class TrainerGAN():
         KLD = torch.sum(KLD_element).mul_(-0.5)
         return mse + KLD
     
+    def inference(self, E_path, data, attr=None):
+        self.E.load_state_dict(torch.load(E_path))
+        self.E.to(device)
+        self.E.eval()
+        if attr is not None:
+            _, mu, _ = self.E(data, attr)
+        else:
+            _, mu, _ = self.E(data)
+        return mu
+
+        
     def train(self):
         self.prepare_environment()
 
@@ -340,6 +351,7 @@ class TrainerGAN():
             if self.tmp_e_loss < self.max_e_loss and e > 50:
                 # torch.save(self.E.state_dict(), os.path.join(self.ckpt_dir, f'E_{e+1}.pth'))
                 torch.save(self.E.state_dict(), os.path.join(self.ckpt_dir, f'E.pth'))
+                print(f"save E_{e+1}")
                 self.max_e_loss = self.tmp_e_loss
 
         logging.info('Finish training')
@@ -447,15 +459,6 @@ class TrainerGAN():
 
         logging.info('Finish training')
    
-    def inference(self, E_path, data, attr):
-        self.E.load_state_dict(torch.load(E_path))
-        self.E.to(device)
-        self.E.eval()
-        _, mu, _ = self.E(data, attr)
-        return mu
-
-
-
 class Discriminator(nn.Module):
     """
     NOTE FOR SETTING DISCRIMINATOR:
