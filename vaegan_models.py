@@ -50,7 +50,9 @@ class Encoder(nn.Module):
         return eps.mul(std).add_(mu)
     
     def forward(self, x, se=None):
-        if se is not None: x = torch.cat((x, se), dim=-1)
+        if self.config['model_type'] == 'cvae':
+            x = torch.cat((x, se), dim=-1)
+
         x = self.lrelu(self.fc1(x))
         x = self.lrelu(self.fc2(x))
         mu = self.enc_mu(x)
@@ -65,6 +67,7 @@ class Generator(nn.Module):
     def __init__(self, config):
         super(Generator, self).__init__()
 
+        self.config = config
         hidden_dims = config['dec_hidden_dims'].copy()
         latent_dim = config['latent_dim']
 
@@ -80,7 +83,7 @@ class Generator(nn.Module):
         # self.apply(weights_init)
     
     def forward(self, z, se=None):
-        if se is not None:
+        if self.config['model_type'] == 'cvae':
             z = torch.cat((z, se), dim=-1)
             
         x = self.lrelu(self.fc1(z))
@@ -173,9 +176,9 @@ class TrainerGAN():
         os.makedirs(self.ckpt_dir, exist_ok=True)
 
         # update dir by time
-        time = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-        self.log_dir = os.path.join(self.log_dir, self.config['dataset'], time+f'_{self.config["model_type"]}')
-        self.ckpt_dir = os.path.join(self.ckpt_dir, self.config['dataset'], time+f'_{self.config["model_type"]}')
+        # time = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+        self.log_dir = os.path.join(self.log_dir, self.config['dataset'])
+        self.ckpt_dir = os.path.join(self.ckpt_dir, self.config['dataset'])
         os.makedirs(self.log_dir)
         os.makedirs(self.ckpt_dir)
         
@@ -272,8 +275,8 @@ class TrainerGAN():
                 # r_imgs = Variable(torch.cat((imgs, att), dim=1)).to(device)
                 r_imgs = Variable(imgs).to(device)
                 att = Variable(att).to(device)
-                f_z, _, _ = self.E(imgs)
-                f_imgs = self.G(f_z)
+                f_z, _, _ = self.E(imgs, att)
+                f_imgs = self.G(f_z, att)
                 r_label = torch.ones((bs)).unsqueeze(dim=1).to(device)
                 f_label = torch.zeros((bs)).unsqueeze(dim=1).to(device)
 
@@ -316,8 +319,8 @@ class TrainerGAN():
                 if self.steps % self.config["n_critic"] == 0:
                     # Generate some fake images
                     # z = Variable(torch.randn(bs, self.config["z_dim"])).to(device)
-                    z, mu, logvar = self.E(r_imgs)
-                    f_imgs = self.G(z)
+                    z, mu, logvar = self.E(r_imgs, att)
+                    f_imgs = self.G(z, att)
                     loss_E = self.loss_cvae(f_imgs, r_imgs, mu, logvar, self.mse, att)
                     
                     self.tmp_e_loss += loss_E.item()
@@ -348,7 +351,7 @@ class TrainerGAN():
                     progress_bar.set_postfix(loss_G=loss_G.item(), loss_D=loss_D.item(), loss_E=loss_E.item())
                 self.steps += 1
             
-            if self.tmp_e_loss < self.max_e_loss and e > 50:
+            if self.tmp_e_loss < self.max_e_loss:
                 # torch.save(self.E.state_dict(), os.path.join(self.ckpt_dir, f'E_{e+1}.pth'))
                 torch.save(self.E.state_dict(), os.path.join(self.ckpt_dir, f'E.pth'))
                 print(f"save E_{e+1}")
@@ -454,7 +457,7 @@ class TrainerGAN():
                 self.steps += 1
             
             if self.tmp_e_loss < self.max_e_loss and e > 50:
-                torch.save(self.E.state_dict(), os.path.join(self.ckpt_dir, f'E_{e+1}.pth'))
+                torch.save(self.E.state_dict(), os.path.join(self.ckpt_dir, f'E.pth'))
                 self.max_e_loss = self.tmp_e_loss
 
         logging.info('Finish training')

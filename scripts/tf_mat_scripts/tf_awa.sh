@@ -2,6 +2,6 @@
 
 
 
-python remake_att.py --model_type 'vae' --dataset "AWA2" \
---E_path "methods/method_vae/checkpoints/AWA2/2022-06-20_04-18-07_vae/E.pth"
+python remake_att.py --model_type 'cvae' --dataset "AWA2" \
+--E_path "methods/method_cvae/checkpoints/AWA2/2022-06-23_02-14-41_cvae/E.pth"
 

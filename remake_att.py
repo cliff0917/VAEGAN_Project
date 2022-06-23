@@ -29,7 +29,7 @@ same_seeds(2000)
 parser = argparse.ArgumentParser(description="make_mat")
 parser.add_argument("--model_type", type=str, default="cvae")
 parser.add_argument("--dataset", type=str, default="AWA2")
-parser.add_argument("--E_path", type=str)
+parser.add_argument("--E_path", type=str, default="methods/method_cvae/checkpoints/AWA2/2022-06-23_02-14-41_cvae/E.pth")
 args = parser.parse_args()
 
 
@@ -88,32 +88,6 @@ elif config['dataset'] == 'AWA2':
 
 
 
-total_class_num = config['seen_class_num'] + config['unseen_class_num']
-print(config['dataset'])
-resnet101_path = 'resnet_direct_2048/'
-
-npy_path = global_path + f"mat_and_model/{dataset}/npy_file/" + resnet101_path
-# model_mat_path = global_path + f"mat_and_model/{dataset}/" + "two_phase/mat/res_direct_2048.mat"
-# attr_mat_path = global_path + f"mat_and_model/{dataset}/" + "two_phase/mat/res_attr_direct_2048.mat"
-
-train_dir = f'{dataset_path}' + f'{dataset}/IMG_backoff/train'
-val_dir = f'{dataset_path}' + f'{dataset}/IMG_backoff/val'
-test_dir = f'{dataset_path}' + f'{dataset}/IMG_backoff/test'
-image_size = 224
-
-
-
-
-# make class
-seen_class = next(os.walk(train_dir))[1]
-unseen_class = next(os.walk(test_dir))[1]
-
-seen_class.sort()
-unseen_class.sort()
-
-print(seen_class)
-print(unseen_class)
-
 trainer = model.TrainerGAN(config)
 # E_path = gan_path + "checkpoints/2022-06-12_05-07-18_cvae/E_249.pth"
 E_path = gan_path + args.E_path
@@ -123,23 +97,34 @@ model = trainer.inference
 # elif model_type == 'cvae':
 #     model = torch.load('vae_pt/best_model_cvae.pt')
 
+path = f'other_mats/tfvae/{dataset}/attr.mat'
 
-r = sio.loadmat(f'other_model_mats/tf_mat/{dataset}/resnet.mat')
+mat_res = sio.loadmat(f'other_mats/tfvae/{dataset}/resnet.mat')
+feature = mat_res['features'].T
+label = mat_res['labels'].astype(int).squeeze() - 1
 
-features = r['features'].transpose()
-print(features.shape)
-
-labels = r['labels']
-labels.shape
-print(labels.max())
+mat_attr = sio.loadmat(path)
+trainval_loc = mat_attr['trainval_loc'].squeeze() - 1
+train_loc = mat_attr['train_loc'].squeeze() - 1
+val_unseen_loc = mat_attr['val_loc'].squeeze() - 1
+test_seen_loc = mat_attr['test_seen_loc'].squeeze() - 1
+test_unseen_loc = mat_attr['test_unseen_loc'].squeeze() - 1
 
 class_num = config['class_num']
 
+# Get attr
+attribute = torch.from_numpy(mat_attr['att'].T).float().to(device)
+attribute = attribute[label]
 
+features = mat_res['features'].transpose()
+# Predict
 features = torch.from_numpy(features).float().to(device)
-predict_attr = model(E_path, features)
 
+assert features.size(0) == attribute.size(0)
+
+predict_attr = model(E_path, features, attribute)
 predict_attr = predict_attr.cpu().detach().numpy()
+labels = mat_res['labels']
 
 sum_attr = [[] for i in range(class_num)]
 real_attr = [[] for i in range(class_num)]
@@ -160,11 +145,6 @@ sum_attr = np.array(sum_attr)
 
 print(sum_attr.shape)
 
-path = f'other_model_mats/tf_mat/{dataset}/attr.mat'
 
-a = sio.loadmat(path)
-
-
-a['att'] = sum_attr.transpose()
-
-sio.savemat(attr_mat_path, a)
+mat_attr['att'] = sum_attr.transpose()
+sio.savemat(attr_mat_path, mat_attr)
