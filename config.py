@@ -26,4 +26,10 @@ config = {
         'model_type': 'cvae',
         'n_critic': 1,
         'LAMBDA': 10,                   # gradient penalty lambda hyperparameter
+        'val': False,
+        'gzsl': True,
+        'cuda': True,
+        'classifier_lr': 0.001,
+        'syn_num': 100,
+        'preprocess': False,
     }

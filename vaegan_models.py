@@ -10,6 +10,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torchvision
 import torchvision.transforms as transforms
+from torch.utils import data
+from torch.utils.data import DataLoader, RandomSampler, SequentialSampler, TensorDataset
 from torch import optim
 from torch.autograd import Variable, grad
 from torch.utils.data import Dataset, DataLoader
@@ -18,6 +20,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import logging
 from tqdm import tqdm
+import data_utils
+import classifier
 
 # os.environ["CUDA_VISIBLE_DEVICES"]=""
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -122,15 +126,36 @@ class Discriminator_D1(nn.Module):
 # setting for weight init function
 def weight_init(m):
     classname = m.__class__.__name__
-    if classname.find('Conv') != -1:
+    if classname.find('Linear') != -1:
         m.weight.data.normal_(0.0, 0.02)
     elif classname.find('BatchNorm') != -1:
         m.weight.data.normal_(1.0, 0.02)
         m.bias.data.fill_(0)
 
-# get dataset
-def get_dataset():
-    pass
+
+def generate_syn_feature(config, generator, classes, attribute, num, netF=None, netDec=None):
+    nclass = classes.size(0)
+    syn_feature = torch.FloatTensor(nclass*num, config['visual_dim'])
+    syn_label = torch.LongTensor(nclass*num)
+    syn_att = torch.FloatTensor(num, config['attr_dim'])
+    syn_noise = torch.FloatTensor(num, config['attr_dim'])
+    if config['cuda']:
+        syn_att = syn_att.cuda()
+        syn_noise = syn_noise.cuda()
+    
+    for i in range(nclass):
+        iclass = classes[i]
+        iclass_att = attribute[iclass]
+        syn_att.copy_(iclass_att.repeat(num, 1))
+        syn_noise.normal_(0, 1)
+        syn_noisev = Variable(syn_noise, requires_grad=True)
+        syn_attv = Variable(syn_att, requires_grad=True)
+        fake = generator(syn_noisev, syn_attv)
+        output = fake
+        syn_feature.narrow(0, i*num, num).copy_(output.data.cpu())
+        syn_label.narrow(0, i*num, num).fill_(iclass)
+    
+    return syn_feature, syn_label
 
 
 
@@ -156,7 +181,6 @@ class TrainerGAN():
         self.opt_D = torch.optim.Adam(self.D.parameters(), lr=self.config["lr"], betas=(0.5, 0.999))
         self.opt_G = torch.optim.Adam(self.G.parameters(), lr=self.config["lr"], betas=(0.5, 0.999))
 
-        self.dataloader = None
         self.log_dir = os.path.join(self.config["workspace_dir"], 'logs')
         self.ckpt_dir = os.path.join(self.config["workspace_dir"], 'checkpoints')
 
@@ -176,9 +200,9 @@ class TrainerGAN():
         os.makedirs(self.ckpt_dir, exist_ok=True)
 
         # update dir by time
-        # time = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-        self.log_dir = os.path.join(self.log_dir, self.config['dataset'])
-        self.ckpt_dir = os.path.join(self.ckpt_dir, self.config['dataset'])
+        time = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+        self.log_dir = os.path.join(self.log_dir, self.config['dataset'], time)
+        self.ckpt_dir = os.path.join(self.ckpt_dir, self.config['dataset'], time)
         os.makedirs(self.log_dir)
         os.makedirs(self.ckpt_dir)
         
@@ -197,6 +221,9 @@ class TrainerGAN():
 
         self.max_e_loss = np.inf
         self.tmp_e_loss = 0
+
+        self.dataset = data_utils.DATA_LOADER(self.config)
+
     
     def gp(self, real_imgs, fake_imgs, att):
         bs = real_imgs.size(0)
@@ -354,13 +381,15 @@ class TrainerGAN():
             if self.tmp_e_loss < self.max_e_loss:
                 # torch.save(self.E.state_dict(), os.path.join(self.ckpt_dir, f'E_{e+1}.pth'))
                 torch.save(self.E.state_dict(), os.path.join(self.ckpt_dir, f'E.pth'))
-                print(f"save E_{e+1}")
+                print(f"E_{e+1} better than privious")
                 self.max_e_loss = self.tmp_e_loss
 
         logging.info('Finish training')
     
     def train_cycle_vaegan(self):
         self.prepare_environment()
+        best_gzsl_acc = 0
+        best_zsl_acc = 0
 
         for e, epoch in enumerate(range(self.config["epochs"])):
             progress_bar = tqdm(self.dataloader)
@@ -456,12 +485,51 @@ class TrainerGAN():
                     progress_bar.set_postfix(loss_G=loss_G.item(), loss_D=loss_D.item(), loss_E=loss_E.item(), ce_bce=ce_bce_loss.item())
                 self.steps += 1
             
-            if self.tmp_e_loss < self.max_e_loss and e > 50:
+            if self.tmp_e_loss < self.max_e_loss:
                 torch.save(self.E.state_dict(), os.path.join(self.ckpt_dir, f'E.pth'))
+                print(f'E_{e+1} better than previous')
                 self.max_e_loss = self.tmp_e_loss
+            
+            self.G.eval()
+            self.D.eval()
+            syn_feature, syn_label = generate_syn_feature(self.config, self.G, self.dataset.unseenclasses, 
+                                            self.dataset.attribute, self.config['syn_num'])
+            
+            if self.config['gzsl']:
+                train_X = torch.cat((self.dataset.train_feature, syn_feature), 0)
+                train_Y = torch.cat((self.dataset.train_label, syn_label), 0)
 
+                nclass = self.config['class_num']
+                gzsl_cls = classifier.CLASSIFIER(train_X, train_Y, self.dataset, nclass, self.config['cuda'], self.config['classifier_lr'], 
+                                                0.5, 25, self.config['syn_num'], generalized=True)
+                if best_gzsl_acc < gzsl_cls.H:
+                    best_acc_seen, best_acc_unseen, best_gzsl_acc = gzsl_cls.acc_seen, gzsl_cls.acc_unseen, gzsl_cls.H
+                print('GZSL: seen=%.4f, unseen=%.4f, h=%.4f' % (gzsl_cls.acc_seen, gzsl_cls.acc_unseen, gzsl_cls.H),end=" ")
+            
+            # zero shot learning
+            # train zsl classifier
+            zsl_cls = classifier.CLASSIFIER(syn_feature, data_utils.map_label(syn_label, self.dataset.unseenclasses),
+                                            self.dataset, self.dataset.unseenclasses.size(0), self.config['cuda'],
+                                            self.config['classifier_lr'], 0.5, 25, self.config['syn_num'],
+                                            generalized=False)
+            acc  = zsl_cls.acc
+            if best_zsl_acc < acc:
+                best_zsl_acc = acc
+            print('ZSL: unseen accuracy=%.4f' % (acc))
+            self.G.train()
+            self.D.train()
+        
+        print('Dataset', self.config['dataset'])
+        print('the best ZSL unseen accuracy is', best_zsl_acc)
+        if self.config['gzsl']:
+            print('Dataset', self.config['dataset'])
+            print('the best GZSL seen accuracy is', best_acc_seen)
+            print('the best GZSL unseen accuracy is', best_acc_unseen)
+            print('the best GZSL H is', best_gzsl_acc)
+            
         logging.info('Finish training')
-   
+
+
 class Discriminator(nn.Module):
     """
     NOTE FOR SETTING DISCRIMINATOR:

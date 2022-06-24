@@ -36,12 +36,12 @@ def same_seeds(seed):
 same_seeds(2000)
 
 parser = argparse.ArgumentParser(description="VAEGAN")
-parser.add_argument("--dataset", type=str, default="CUB")
+parser.add_argument("--dataset", type=str, default="AWA2")
 parser.add_argument("--model_type", type=str, default="cvae")
-parser.add_argument("--lr", type=float, default=1e-3)
-parser.add_argument("--w_dir", type=str, default="./")
-parser.add_argument("--n_critic", type=int, default=1)
-parser.add_argument("--epochs", type=int, default=200)
+parser.add_argument("--lr", type=float, default=1e-4)
+parser.add_argument("--w_dir", type=str, default="./methods/method_zsl")
+parser.add_argument("--n_critic", type=int, default=2)
+parser.add_argument("--epochs", type=int, default=400)
 args = parser.parse_args()
 
 # ----- set parameter

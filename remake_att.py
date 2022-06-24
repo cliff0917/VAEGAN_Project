@@ -97,9 +97,9 @@ model = trainer.inference
 # elif model_type == 'cvae':
 #     model = torch.load('vae_pt/best_model_cvae.pt')
 
-path = f'other_mats/tfvae/{dataset}/attr.mat'
+path = f'other_mats/{dataset}/attr.mat'
 
-mat_res = sio.loadmat(f'other_mats/tfvae/{dataset}/resnet.mat')
+mat_res = sio.loadmat(f'other_mats/{dataset}/resnet.mat')
 feature = mat_res['features'].T
 label = mat_res['labels'].astype(int).squeeze() - 1
 
