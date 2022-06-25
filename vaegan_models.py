@@ -99,11 +99,10 @@ class Discriminator_D1(nn.Module):
     def __init__(self, config):
         super(Discriminator_D1, self).__init__()
         
-        # if config['model_type'] == 'cvae':
-        #     in_dim = config['visual_dim'] + config['attr_dim']
-        # else:
-        #     in_dim = config['visual_dim']
-        in_dim = config['visual_dim']
+        if config['model_type'] == 'cvae':
+            in_dim = config['visual_dim'] + config['attr_dim']
+        else:
+            in_dim = config['visual_dim']
 
         self.fc1 = nn.Linear(in_dim, config['d_hdim'])
         self.fc2 = nn.Linear(config['d_hdim'], 1)
@@ -234,10 +233,13 @@ class TrainerGAN():
 
         interpolates = alpha * real_imgs + ((1 - alpha) * fake_imgs)
         interpolates = interpolates.to(device)
-        interpolates = Variable(interpolates, requires_grad=True)
+        # interpolates = Variable(interpolates, requires_grad=True)
+        interpolates = Variable(torch.cat((interpolates, att),dim=1), requires_grad=True)
 
-        disc_interpolates = self.D(interpolates)
+        # disc_interpolates = self.D(interpolates)
         # disc_interpolates = self.D(interpolates, att)
+        disc_interpolates = self.D(interpolates)
+        # inter_att = torch.cat((interpolates, att), dim=1)
 
         gradients = grad(outputs=disc_interpolates, inputs=interpolates,
                          grad_outputs=torch.ones(disc_interpolates.size()).to(device),
@@ -308,8 +310,8 @@ class TrainerGAN():
                 f_label = torch.zeros((bs)).unsqueeze(dim=1).to(device)
 
                 # Discriminator forwarding
-                r_logit = self.D(r_imgs)
-                f_logit = self.D(f_imgs)
+                r_logit = self.D(r_imgs, att)
+                f_logit = self.D(f_imgs, att)
                 
                 """
                 NOTE FOR SETTING DISCRIMINATOR LOSS:
@@ -352,8 +354,8 @@ class TrainerGAN():
                     
                     self.tmp_e_loss += loss_E.item()
                     # Generator forwarding
-                    # f_logit = self.D(f_imgs, att)
-                    f_logit = self.D(f_imgs)
+                    f_logit = self.D(f_imgs, att)
+                    # f_logit = self.D(f_imgs)
 
                     """
                     NOTE FOR SETTING LOSS FOR GENERATOR:
