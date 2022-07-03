@@ -12,6 +12,8 @@ import argparse
 import vaegan_models as model
 from config import *
 
+# os.environ["CUDA_VISIBLE_DEVICES"]="1"
+
 # set the random seed
 def same_seeds(seed):
     random.seed(seed)
@@ -24,7 +26,8 @@ def same_seeds(seed):
     torch.backends.cudnn.deterministic = False
 
 same_seeds(2000)
-# torch.cuda.set_device('cuda:1')
+torch.cuda.set_device('cuda:1')
+cuda1 = torch.device('cuda:1')
 
 parser = argparse.ArgumentParser(description="make_mat")
 parser.add_argument("--model_type", type=str, default="cvae")

@@ -42,6 +42,8 @@ parser.add_argument("--lr", type=float, default=1e-4)
 parser.add_argument("--w_dir", type=str, default="./methods/method_zsl")
 parser.add_argument("--n_critic", type=int, default=2)
 parser.add_argument("--epochs", type=int, default=400)
+parser.add_argument("--gzsl", type=bool, default=False)
+parser.add_argument("--zsl", type=bool, default=False)
 args = parser.parse_args()
 
 # ----- set parameter
@@ -51,6 +53,8 @@ config['lr'] = args.lr
 config['workspace_dir'] = args.w_dir
 config['n_critic'] = args.n_critic
 config['epochs'] = args.epochs
+config['gzsl'] = args.gzsl
+config['zsl'] = args.zsl
 
 # best_model_path = f"vaegan_pt/{config['dataset']}/best_model_cvae.pt"
 # last_model_path = f"vaegan_pt/{config['dataset']}/last_model_cvae.pt"

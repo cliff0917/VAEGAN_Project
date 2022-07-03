@@ -2,5 +2,5 @@
 
 
 
-python remake_att.py --model_type 'cvae' --dataset "CUB" \
---E_path "methods/tf_cvae/checkpoints/CUB/2022-06-23_13-46-06/E.pth"
+python remake_att.py --model_type 'vae' --dataset "CUB" \
+--E_path "methods/v2_vae/checkpoints/CUB/2022-06-24_06-10-48/E.pth"

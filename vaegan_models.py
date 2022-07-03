@@ -23,8 +23,18 @@ from tqdm import tqdm
 import data_utils
 import classifier
 
-# os.environ["CUDA_VISIBLE_DEVICES"]=""
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# os.environ["CUDA_VISIBLE_DEVICES"]="1"
+device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
+
+# setting for weight init function
+def weight_init(m):
+    classname = m.__class__.__name__
+    if classname.find('Linear') != -1:
+        m.weight.data.normal_(0.0, 0.02)
+    elif classname.find('BatchNorm') != -1:
+        m.weight.data.normal_(1.0, 0.02)
+        m.bias.data.fill_(0)
+
 
 class Encoder(nn.Module):
     def __init__(self, config):
@@ -43,6 +53,8 @@ class Encoder(nn.Module):
         self.lrelu = nn.LeakyReLU(0.2, True)
         self.enc_mu = nn.Linear(latent_dim*2, latent_dim)
         self.enc_logvar = nn.Linear(latent_dim*2, latent_dim)
+
+        self.apply(weight_init)
     
     def reparameterize(self, mu, logvar):
         std = logvar.mul(0.5).exp_()
@@ -84,7 +96,7 @@ class Generator(nn.Module):
         self.fc2 = nn.Linear(hidden_dims[0], hidden_dims[1])
         self.lrelu = nn.LeakyReLU(0.2, True)
         self.sigmoid = nn.Sigmoid()
-        # self.apply(weights_init)
+        self.apply(weight_init)
     
     def forward(self, z, se=None):
         if self.config['model_type'] == 'cvae':
@@ -94,6 +106,28 @@ class Generator(nn.Module):
         x = self.sigmoid(self.fc2(x))
         return x
         
+
+class AttDec(nn.Module):
+    def __init__(self, config):
+        super(AttDec, self).__init__()
+        self.config = config
+        self.model = nn.Sequential(
+            nn.Linear(self.config['visual_dim'] + self.config['attr_dim'], 1024),
+            nn.LeakyReLU(0.2, True),
+            nn.Linear(1024, self.config['attr_dim']),
+            nn.Sigmoid(),
+        )
+        self.apply(weight_init)
+    
+    def forward(self, x, att=None):
+        if att is not None:
+            h = torch.cat((x, att), dim=1)
+        else:
+            h = x
+        
+        output = self.model(h)
+        return output
+
 
 class Discriminator_D1(nn.Module):
     def __init__(self, config):
@@ -122,14 +156,7 @@ class Discriminator_D1(nn.Module):
 
 
 
-# setting for weight init function
-def weight_init(m):
-    classname = m.__class__.__name__
-    if classname.find('Linear') != -1:
-        m.weight.data.normal_(0.0, 0.02)
-    elif classname.find('BatchNorm') != -1:
-        m.weight.data.normal_(1.0, 0.02)
-        m.bias.data.fill_(0)
+
 
 
 def generate_syn_feature(config, generator, classes, attribute, num, netF=None, netDec=None):
@@ -165,6 +192,7 @@ class TrainerGAN():
         self.E = Encoder(self.config)
         self.G = Generator(self.config)
         self.D = Discriminator_D1(self.config)
+        self.attD = AttDec(self.config)
 
         self.loss = nn.BCELoss()
         self.mse = nn.MSELoss(reduction='mean')
@@ -177,9 +205,9 @@ class TrainerGAN():
         WGAN-GP: use Adam optimizer 
         """
         self.opt_E = torch.optim.Adam(self.E.parameters(), lr=self.config["lr"], betas=(0.5, 0.999))
-        self.opt_D = torch.optim.Adam(self.D.parameters(), lr=self.config["lr"], betas=(0.5, 0.999))
         self.opt_G = torch.optim.Adam(self.G.parameters(), lr=self.config["lr"], betas=(0.5, 0.999))
-
+        self.opt_D = torch.optim.Adam(self.D.parameters(), lr=self.config["lr"], betas=(0.5, 0.999))
+        self.opt_attD = torch.optim.Adam(self.attD.parameters(), lr=self.config["lr"], betas=(0.5, 0.999))
         self.log_dir = os.path.join(self.config["workspace_dir"], 'logs')
         self.ckpt_dir = os.path.join(self.config["workspace_dir"], 'checkpoints')
 
@@ -214,9 +242,11 @@ class TrainerGAN():
         self.E = self.E.to(device)
         self.G = self.G.to(device)
         self.D = self.D.to(device)
+        self.attD = self.attD.to(device)
         self.E.train()
         self.G.train()
         self.D.train()
+        self.attD.train()
 
         self.max_e_loss = np.inf
         self.tmp_e_loss = 0
@@ -277,6 +307,79 @@ class TrainerGAN():
         else:
             _, mu, _ = self.E(data)
         return mu
+    
+    def train_cvae(self):
+        self.prepare_environment()
+        
+        for e, epoch in enumerate(range(self.config["epochs"])):
+            progress_bar = tqdm(self.dataloader)
+            progress_bar.set_description(f"Epoch {e+1}")
+            self.tmp_e_loss = 0
+
+            for i, (data, att) in enumerate(progress_bar):
+                imgs = data.to(device)
+                att = att.float().to(device)
+                bs = imgs.size(0)
+
+                r_imgs = Variable(imgs).to(device)
+                z, mu, logvar = self.E(r_imgs, att)
+                f_imgs = self.G(z, att)
+                loss_E = self.loss_cvae(f_imgs, r_imgs, mu, logvar, self.mse, att)
+                self.tmp_e_loss += loss_E.item()
+
+                self.E.zero_grad()
+                self.G.zero_grad()
+                loss_E.backward()
+                self.opt_G.step()
+                self.opt_E.step()
+            
+            if self.steps % 10 == 0:
+                progress_bar.set_postfix(loss_E=loss_E.item())
+            self.steps += 1
+        
+        if self.tmp_e_loss < self.max_e_loss:
+            # torch.save(self.E.state_dict(), os.path.join(self.ckpt_dir, f'E_{e+1}.pth'))
+            torch.save(self.E.state_dict(), os.path.join(self.ckpt_dir, f'E.pth'))
+            print(f"E_{e+1} better than privious")
+            self.max_e_loss = self.tmp_e_loss
+    logging.info('Finish training')
+    
+
+    def train_vae(self):
+        self.prepare_environment()
+        
+        for e, epoch in enumerate(range(self.config["epochs"])):
+            progress_bar = tqdm(self.dataloader)
+            progress_bar.set_description(f"Epoch {e+1}")
+            self.tmp_e_loss = 0
+
+            for i, (data, att) in enumerate(progress_bar):
+                imgs = data.to(device)
+                att = att.float().to(device)
+                bs = imgs.size(0)
+
+                r_imgs = Variable(imgs).to(device)
+                z, mu, logvar = self.E(r_imgs)
+                f_imgs = self.G(z)
+                loss_E = self.loss_cvae(f_imgs, r_imgs, mu, logvar, self.mse, att)
+                self.tmp_e_loss += loss_E.item()
+
+                self.E.zero_grad()
+                self.G.zero_grad()
+                loss_E.backward()
+                self.opt_G.step()
+                self.opt_E.step()
+            
+            if self.steps % 10 == 0:
+                progress_bar.set_postfix(loss_E=loss_E.item())
+            self.steps += 1
+        
+        if self.tmp_e_loss < self.max_e_loss:
+            # torch.save(self.E.state_dict(), os.path.join(self.ckpt_dir, f'E_{e+1}.pth'))
+            torch.save(self.E.state_dict(), os.path.join(self.ckpt_dir, f'E.pth'))
+            print(f"E_{e+1} better than privious")
+            self.max_e_loss = self.tmp_e_loss
+    logging.info('Finish training')
 
         
     def train(self):
@@ -510,14 +613,17 @@ class TrainerGAN():
             
             # zero shot learning
             # train zsl classifier
-            zsl_cls = classifier.CLASSIFIER(syn_feature, data_utils.map_label(syn_label, self.dataset.unseenclasses),
+
+            if self.config['zsl']:
+                zsl_cls = classifier.CLASSIFIER(syn_feature, data_utils.map_label(syn_label, self.dataset.unseenclasses),
                                             self.dataset, self.dataset.unseenclasses.size(0), self.config['cuda'],
                                             self.config['classifier_lr'], 0.5, 25, self.config['syn_num'],
                                             generalized=False)
-            acc  = zsl_cls.acc
-            if best_zsl_acc < acc:
-                best_zsl_acc = acc
-            print('ZSL: unseen accuracy=%.4f' % (acc))
+                acc  = zsl_cls.acc
+                if best_zsl_acc < acc:
+                    best_zsl_acc = acc
+                print('ZSL: unseen accuracy=%.4f' % (acc))
+
             self.G.train()
             self.D.train()
         
