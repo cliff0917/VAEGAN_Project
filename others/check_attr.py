@@ -116,38 +116,40 @@ test_unseen_loc = mat_attr['test_unseen_loc'].squeeze() - 1
 class_num = config['class_num']
 
 # Get attr
-attribute = torch.from_numpy(mat_attr['att'].T).float().to(device)
-attribute = attribute[label]
+a = mat_attr['att'].T
+print(a)
+# attribute = torch.from_numpy(mat_attr['att'].T).float().to(device)
+# attribute = attribute[label]
 
-features = mat_res['features'].transpose()
-# Predict
-features = torch.from_numpy(features).float().to(device)
+# features = mat_res['features'].transpose()
+# # Predict
+# features = torch.from_numpy(features).float().to(device)
 
-assert features.size(0) == attribute.size(0)
+# assert features.size(0) == attribute.size(0)
 
-predict_attr = model(E_path, features, attribute)
-predict_attr = predict_attr.cpu().detach().numpy()
-labels = mat_res['labels']
+# predict_attr = model(E_path, features, attribute)
+# predict_attr = predict_attr.cpu().detach().numpy()
+# labels = mat_res['labels']
 
-sum_attr = [[] for i in range(class_num)]
-real_attr = [[] for i in range(class_num)]
-count_class = [0 for i in range(class_num)]
-for idx in range(len(predict_attr)):
-    l = int(labels[idx]) - 1
-    if sum_attr[l] == []:
-        sum_attr[l] = predict_attr[idx].copy()
-    else:    
-        sum_attr[l] += predict_attr[idx]
-    count_class[l] += 1
+# sum_attr = [[] for i in range(class_num)]
+# real_attr = [[] for i in range(class_num)]
+# count_class = [0 for i in range(class_num)]
+# for idx in range(len(predict_attr)):
+#     l = int(labels[idx]) - 1
+#     if sum_attr[l] == []:
+#         sum_attr[l] = predict_attr[idx].copy()
+#     else:    
+#         sum_attr[l] += predict_attr[idx]
+#     count_class[l] += 1
 
-# averge
-for i in range(class_num):
-    sum_attr[i] = sum_attr[i] / count_class[i]
-sum_attr = np.array(sum_attr)
-
-
-print(sum_attr.shape)
+# # averge
+# for i in range(class_num):
+#     sum_attr[i] = sum_attr[i] / count_class[i]
+# sum_attr = np.array(sum_attr)
 
 
-mat_attr['att'] = sum_attr.transpose()
-sio.savemat(attr_mat_path, mat_attr)
+# print(sum_attr.shape)
+
+
+# mat_attr['att'] = sum_attr.transpose()
+# sio.savemat(attr_mat_path, mat_attr)

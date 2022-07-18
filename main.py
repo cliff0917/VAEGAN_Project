@@ -39,7 +39,7 @@ parser = argparse.ArgumentParser(description="VAEGAN")
 parser.add_argument("--dataset", type=str, default="AWA2")
 parser.add_argument("--model_type", type=str, default="cvae")
 parser.add_argument("--lr", type=float, default=1e-4)
-parser.add_argument("--w_dir", type=str, default="./methods/method_zsl")
+parser.add_argument("--w_dir", type=str, default="./methods/method_test")
 parser.add_argument("--n_critic", type=int, default=2)
 parser.add_argument("--epochs", type=int, default=400)
 parser.add_argument("--gzsl", type=bool, default=False)
@@ -67,8 +67,8 @@ global_path = home_dir + "Plearning_song/"
 resnet101_path = "resnet_direct_2048/"
 npy_path = global_path + f"mat_and_model/{config['dataset']}/npy_file/" + resnet101_path
 
-model_mat_path = global_path + f"mat_and_model/{config['dataset']}/" + "two_phase/mat/res_direct_2048.mat"
-attr_mat_path = global_path + f"mat_and_model/{config['dataset']}/" + "two_phase/mat/res_attr_direct_2048.mat"
+# model_mat_path = global_path + f"mat_and_model/{config['dataset']}/" + "two_phase/mat/res_direct_2048.mat"
+# attr_mat_path = global_path + f"mat_and_model/{config['dataset']}/" + "two_phase/mat/res_attr_direct_2048.mat"
 
 if config['dataset'] == 'SUN':
     config['attr_dim'] = 102
@@ -122,15 +122,35 @@ class CustomTensorDataset(TensorDataset):
         return len(self.data)
 
 
+
+
+
+
+def get_data():
+    attr_path = f"other_mats/{config['dataset']}/attr.mat"
+    res_path = f"other_mats/{config['dataset']}/resnet.mat"
+    mat_res = sio.loadmat(res_path)
+    feature = mat_res['features'].T
+    label = mat_res['labels'].astype(int).squeeze() - 1
+    mat_attr = sio.loadmat(attr_path)
+    trainval_loc = mat_attr['trainval_loc'].squeeze() - 1
+    
+    train_feature = torch.from_numpy(feature).float().to(device)
+    attribute = torch.from_numpy(mat_attr['att'].T).float().to(device)
+    attribute = attribute[label]
+    return train_feature, attribute
+
+# x, y = get_data()
+
 x = torch.from_numpy(data_train)
 y = torch.from_numpy(attr_train)
-train_dataset = CustomTensorDataset(x, y)
 
+train_dataset = CustomTensorDataset(x, y)
 train_sampler = RandomSampler(train_dataset)
 train_data_loader = DataLoader(train_dataset, sampler=train_sampler, 
                             batch_size=config["batch_size"])
-
 config['dataloader'] = train_data_loader
+
 
 criterion = nn.MSELoss(reduction='mean')
 # optimizer = torch.optim.Adam(model.parameters(), lr=config["learning_rate"])
@@ -140,7 +160,13 @@ criterion = nn.MSELoss(reduction='mean')
 # model train
 trainer = model.TrainerGAN(config)
 
-if config['model_type'] == 'cvae' or config['model_type'] == 'vae':
+if config['model_type'] == 'cvae':
+    print("train cvae")
+    trainer.train_cvae()
+elif config['model_type'] == 'vae':
+    print("train vae")
+    trainer.train_vae()
+elif config['model_type'] == 'cvaegan' or config['model_type'] == 'vaegan':
     print("trainer.train()")
     trainer.train()
 else:

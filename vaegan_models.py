@@ -24,7 +24,7 @@ import data_utils
 import classifier
 
 # os.environ["CUDA_VISIBLE_DEVICES"]="1"
-device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 # setting for weight init function
 def weight_init(m):
@@ -43,7 +43,7 @@ class Encoder(nn.Module):
         hidden_dims = config['enc_hidden_dims'].copy()
         latent_dim = config['latent_dim']
         
-        if self.config['model_type'] == 'cvae':
+        if self.config['model_type'] == 'cvae' or self.config['model_type'] == 'cvaegan':
             in_dim = hidden_dims[0] + config['latent_dim']
         else:
             in_dim = hidden_dims[0]
@@ -66,7 +66,7 @@ class Encoder(nn.Module):
         return eps.mul(std).add_(mu)
     
     def forward(self, x, se=None):
-        if self.config['model_type'] == 'cvae':
+        if self.config['model_type'] == 'cvae' or self.config['model_type'] == 'cvaegan':
             x = torch.cat((x, se), dim=-1)
 
         x = self.lrelu(self.fc1(x))
@@ -87,7 +87,7 @@ class Generator(nn.Module):
         hidden_dims = config['dec_hidden_dims'].copy()
         latent_dim = config['latent_dim']
 
-        if config['model_type'] == 'cvae':
+        if config['model_type'] == 'cvae' or config['model_type'] == 'cvaegan':
             in_dim = latent_dim * 2
         else:
             in_dim = latent_dim
@@ -99,7 +99,7 @@ class Generator(nn.Module):
         self.apply(weight_init)
     
     def forward(self, z, se=None):
-        if self.config['model_type'] == 'cvae':
+        if self.config['model_type'] == 'cvae' or self.config['model_type'] == 'cvaegan':
             z = torch.cat((z, se), dim=-1)
             
         x = self.lrelu(self.fc1(z))
@@ -132,8 +132,9 @@ class AttDec(nn.Module):
 class Discriminator_D1(nn.Module):
     def __init__(self, config):
         super(Discriminator_D1, self).__init__()
+        self.config = config
         
-        if config['model_type'] == 'cvae':
+        if config['model_type'] == 'cvae' or config['model_type'] == 'cvaegan':
             in_dim = config['visual_dim'] + config['attr_dim']
         else:
             in_dim = config['visual_dim']
@@ -145,10 +146,10 @@ class Discriminator_D1(nn.Module):
 
         self.apply(weight_init)
     def forward(self, x, att=None):
-        if att is None:
-            h = x
-        else:
+        if self.config['model_type'] == 'cvae' or self.config['model_type'] == 'cvaegan':
             h = torch.cat((x, att), dim=1)
+        else:
+            h = x
         self.hidden = self.lrelu(self.fc1(h))
         h = self.fc2(self.hidden)
         h = self.sigmoid(h)
@@ -208,7 +209,7 @@ class TrainerGAN():
         self.opt_G = torch.optim.Adam(self.G.parameters(), lr=self.config["lr"], betas=(0.5, 0.999))
         self.opt_D = torch.optim.Adam(self.D.parameters(), lr=self.config["lr"], betas=(0.5, 0.999))
         self.opt_attD = torch.optim.Adam(self.attD.parameters(), lr=self.config["lr"], betas=(0.5, 0.999))
-        self.log_dir = os.path.join(self.config["workspace_dir"], 'logs')
+        # self.log_dir = os.path.join(self.config["workspace_dir"], 'logs')
         self.ckpt_dir = os.path.join(self.config["workspace_dir"], 'checkpoints')
 
         FORMAT = '%(asctime)s - %(levelname)s: %(message)s'
@@ -223,14 +224,14 @@ class TrainerGAN():
         """
         Use this function to prepare function
         """
-        os.makedirs(self.log_dir, exist_ok=True)
+        # os.makedirs(self.log_dir, exist_ok=True)
         os.makedirs(self.ckpt_dir, exist_ok=True)
 
         # update dir by time
         time = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-        self.log_dir = os.path.join(self.log_dir, self.config['dataset'], time)
+        # self.log_dir = os.path.join(self.log_dir, self.config['dataset'], time)
         self.ckpt_dir = os.path.join(self.ckpt_dir, self.config['dataset'], time)
-        os.makedirs(self.log_dir)
+        # os.makedirs(self.log_dir)
         os.makedirs(self.ckpt_dir)
         
         # create dataset by the above function
@@ -333,16 +334,16 @@ class TrainerGAN():
                 self.opt_G.step()
                 self.opt_E.step()
             
-            if self.steps % 10 == 0:
-                progress_bar.set_postfix(loss_E=loss_E.item())
-            self.steps += 1
+                if self.steps % 10 == 0:
+                    progress_bar.set_postfix(loss_E=loss_E.item())
+                self.steps += 1
         
-        if self.tmp_e_loss < self.max_e_loss:
-            # torch.save(self.E.state_dict(), os.path.join(self.ckpt_dir, f'E_{e+1}.pth'))
-            torch.save(self.E.state_dict(), os.path.join(self.ckpt_dir, f'E.pth'))
-            print(f"E_{e+1} better than privious")
-            self.max_e_loss = self.tmp_e_loss
-    logging.info('Finish training')
+            if self.tmp_e_loss < self.max_e_loss:
+                # torch.save(self.E.state_dict(), os.path.join(self.ckpt_dir, f'E_{e+1}.pth'))
+                torch.save(self.E.state_dict(), os.path.join(self.ckpt_dir, f'E.pth'))
+                print(f"E_{e+1} better than privious")
+                self.max_e_loss = self.tmp_e_loss
+        logging.info('Finish training')
     
 
     def train_vae(self):
@@ -370,16 +371,16 @@ class TrainerGAN():
                 self.opt_G.step()
                 self.opt_E.step()
             
-            if self.steps % 10 == 0:
-                progress_bar.set_postfix(loss_E=loss_E.item())
-            self.steps += 1
+                if self.steps % 10 == 0:
+                    progress_bar.set_postfix(loss_E=loss_E.item())
+                self.steps += 1
         
-        if self.tmp_e_loss < self.max_e_loss:
-            # torch.save(self.E.state_dict(), os.path.join(self.ckpt_dir, f'E_{e+1}.pth'))
-            torch.save(self.E.state_dict(), os.path.join(self.ckpt_dir, f'E.pth'))
-            print(f"E_{e+1} better than privious")
-            self.max_e_loss = self.tmp_e_loss
-    logging.info('Finish training')
+            if self.tmp_e_loss < self.max_e_loss:
+                # torch.save(self.E.state_dict(), os.path.join(self.ckpt_dir, f'E_{e+1}.pth'))
+                torch.save(self.E.state_dict(), os.path.join(self.ckpt_dir, f'E.pth'))
+                print(f"E_{e+1} better than privious")
+                self.max_e_loss = self.tmp_e_loss
+        logging.info('Finish training')
 
         
     def train(self):
@@ -402,19 +403,23 @@ class TrainerGAN():
                 # input_att = Variable(torch.randn(bs, self.config['attr_dim'])).to(device)
 
                 # cvae
-                z = Variable(torch.randn(bs, self.config['visual_dim'] + self.config['attr_dim'])).to(device)
+                # z = Variable(torch.randn(bs, self.config['visual_dim'] + self.config['attr_dim'])).to(device)
+                n_v = Variable(torch.randn(bs, self.config['visual_dim'])).to(device)
+                
 
                 # r_imgs = Variable(torch.cat((imgs, att), dim=1)).to(device)
                 r_imgs = Variable(imgs).to(device)
                 att = Variable(att).to(device)
                 f_z, _, _ = self.E(imgs, att)
                 f_imgs = self.G(f_z, att)
-                r_label = torch.ones((bs)).unsqueeze(dim=1).to(device)
-                f_label = torch.zeros((bs)).unsqueeze(dim=1).to(device)
+                # n_imgs = self.G(n_v, att)
+                # r_label = torch.ones((bs)).unsqueeze(dim=1).to(device)
+                # f_label = torch.zeros((bs)).unsqueeze(dim=1).to(device)
 
                 # Discriminator forwarding
                 r_logit = self.D(r_imgs, att)
                 f_logit = self.D(f_imgs, att)
+                n_logit = self.D(n_v, att)
                 
                 """
                 NOTE FOR SETTING DISCRIMINATOR LOSS:
@@ -429,8 +434,11 @@ class TrainerGAN():
                 """
                 
                 # wgan-gp
-                gradient_penalty = self.gp(r_imgs, f_imgs, att)                
-                loss_D = -torch.mean(r_logit) + torch.mean(f_logit) + gradient_penalty
+                # gradient_penalty = self.gp(r_imgs, f_imgs, att)                
+                # loss_D = -torch.mean(r_logit) + torch.mean(f_logit) + gradient_penalty
+                
+                # wgan
+                loss_D = -torch.mean(r_logit) + torch.mean(f_logit) + torch.mean(n_logit)
 
                 # Discriminator backwarding
                 self.D.zero_grad()
@@ -451,14 +459,17 @@ class TrainerGAN():
                 if self.steps % self.config["n_critic"] == 0:
                     # Generate some fake images
                     # z = Variable(torch.randn(bs, self.config["z_dim"])).to(device)
-                    z, mu, logvar = self.E(r_imgs, att)
-                    f_imgs = self.G(z, att)
+                    e_z, mu, logvar = self.E(r_imgs, att)
+                    f_imgs = self.G(e_z, att)
                     loss_E = self.loss_cvae(f_imgs, r_imgs, mu, logvar, self.mse, att)
                     
                     self.tmp_e_loss += loss_E.item()
                     # Generator forwarding
                     f_logit = self.D(f_imgs, att)
                     # f_logit = self.D(f_imgs)
+
+                    n_z = Variable(torch.randn(bs, self.config['attr_dim'])).to(device)
+                    n_imgs = self.G(n_z, att)
 
                     """
                     NOTE FOR SETTING LOSS FOR GENERATOR:
@@ -468,7 +479,10 @@ class TrainerGAN():
                     WGAN-GP: loss_G = -torch.mean(self.D(f_imgs))
                     """
                     # Loss for the generator.
-                    loss_G = self.loss(f_logit, r_label)
+                    # loss_G = self.loss(f_logit, r_label)
+
+                    # WGAN
+                    loss_G = -torch.mean(self.D(f_imgs, att)) - torch.mean(self.D(n_imgs, att))
 
                     # Generator backwarding
                     self.G.zero_grad()

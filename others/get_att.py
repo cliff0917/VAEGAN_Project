@@ -1,3 +1,4 @@
+
 from ast import walk
 import numpy as np
 import pandas as pd
@@ -58,15 +59,10 @@ else:
 
 dataset_path = os.path.join(global_path, "data/")
 
-model_mat_path = gan_path + f'mat/{dataset}/resnet.mat'
-attr_mat_path = gan_path + f'mat/{dataset}/attr.mat'
-print('model_mat_path:', model_mat_path)
-print('attr_mat_path:', attr_mat_path)
-
-
-
 # classname = pd.read_csv(
 #     f'{global_path}/data/{dataset}/classes.txt', header=None, sep='\t')
+
+
 classname = pd.read_csv(
     dataset_path + f'/{dataset}/classes.txt', header=None, sep='\t')
 
@@ -116,6 +112,8 @@ test_unseen_loc = mat_attr['test_unseen_loc'].squeeze() - 1
 class_num = config['class_num']
 
 # Get attr
+a = mat_attr['att'].T
+pd.DataFrame(a).to_csv(dataset + 'sample.csv')
 attribute = torch.from_numpy(mat_attr['att'].T).float().to(device)
 attribute = attribute[label]
 
@@ -148,6 +146,9 @@ sum_attr = np.array(sum_attr)
 
 print(sum_attr.shape)
 
+pd.DataFrame(sum_attr).to_csv(dataset + 'sample2.csv')
 
-mat_attr['att'] = sum_attr.transpose()
-sio.savemat(attr_mat_path, mat_attr)
+
+# mat_attr['att'] = sum_attr.transpose()
+# sio.savemat(attr_mat_path, mat_attr)
+

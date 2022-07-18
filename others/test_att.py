@@ -29,11 +29,17 @@ same_seeds(2000)
 torch.cuda.set_device('cuda:0')
 cuda1 = torch.device('cuda:0')
 
-parser = argparse.ArgumentParser(description="make_mat")
-parser.add_argument("--model_type", type=str, default="cvae")
-parser.add_argument("--dataset", type=str, default="AWA2")
-parser.add_argument("--E_path", type=str, default="methods/method_cvae/checkpoints/AWA2/2022-06-23_02-14-41_cvae/E.pth")
-args = parser.parse_args()
+
+class args_parser:
+    def __init__(self):
+        self.model_type = "cvae"
+        self.dataset = "AWA2"
+        self.E_path = "methods/method_cvae/checkpoints/AWA2/2022-06-23_02-14-41_cvae/E.pth"
+
+
+args = args_parser()
+att_path = "xlsa17/data/AWA2/att_splits.mat"
+att = sio.loadmat(att_path)
 
 
 # data config
@@ -116,6 +122,8 @@ test_unseen_loc = mat_attr['test_unseen_loc'].squeeze() - 1
 class_num = config['class_num']
 
 # Get attr
+a = mat_attr['att'].T
+pd.DataFrame(a).to_csv(dataset + 'sample.csv')
 attribute = torch.from_numpy(mat_attr['att'].T).float().to(device)
 attribute = attribute[label]
 
@@ -148,6 +156,9 @@ sum_attr = np.array(sum_attr)
 
 print(sum_attr.shape)
 
+pd.DataFrame(sum_attr).to_csv(dataset + 'sample2.csv')
 
-mat_attr['att'] = sum_attr.transpose()
-sio.savemat(attr_mat_path, mat_attr)
+
+# mat_attr['att'] = sum_attr.transpose()
+# sio.savemat(attr_mat_path, mat_attr)
+
