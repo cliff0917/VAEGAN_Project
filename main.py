@@ -64,12 +64,6 @@ config['zsl'] = args.zsl
 home_dir = os.path.expanduser("~") + '/'
 global_path = home_dir + "Plearning_song/"
 
-resnet101_path = "resnet_direct_2048/"
-npy_path = global_path + f"mat_and_model/{config['dataset']}/npy_file/" + resnet101_path
-
-# model_mat_path = global_path + f"mat_and_model/{config['dataset']}/" + "two_phase/mat/res_direct_2048.mat"
-# attr_mat_path = global_path + f"mat_and_model/{config['dataset']}/" + "two_phase/mat/res_attr_direct_2048.mat"
-
 if config['dataset'] == 'SUN':
     config['attr_dim'] = 102
     config['latent_dim'] = 102
@@ -90,23 +84,6 @@ elif config['dataset'] == 'AWA2':
     config['unseen_class_num'] = 10
 
 
-data_train = np.load(npy_path + 'train/train_feature_ft.npy')
-attr_train = np.load(npy_path + 'train/train_attr_cms.npy')
-label_train = np.load(npy_path + 'train/train_label_list.npy')
-print('train')
-print(data_train.shape)
-print(attr_train.shape)
-print(label_train.shape)
-
-data_val = np.load(npy_path + 'val/val_feature_ft.npy')
-attr_val = np.load(npy_path + 'val/val_attr_cms.npy')
-label_val = np.load(npy_path + 'val/val_label_list.npy')
-print('val')
-print(data_val.shape)
-print(attr_val.shape)
-print(label_val.shape)
-
-
 # Create dataset
 class CustomTensorDataset(TensorDataset):
     def __init__(self, data, attr):
@@ -120,11 +97,6 @@ class CustomTensorDataset(TensorDataset):
 
     def __len__(self):
         return len(self.data)
-
-
-
-
-
 
 def get_data():
     attr_path = f"other_mats/{config['dataset']}/attr.mat"
@@ -140,10 +112,7 @@ def get_data():
     attribute = attribute[label]
     return train_feature, attribute
 
-# x, y = get_data()
-
-x = torch.from_numpy(data_train)
-y = torch.from_numpy(attr_train)
+x, y = get_data()
 
 train_dataset = CustomTensorDataset(x, y)
 train_sampler = RandomSampler(train_dataset)
