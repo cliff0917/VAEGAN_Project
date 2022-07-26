@@ -1,2 +1,7 @@
+vaegan_mat
+vaegan_pt
+checkpoints
+logs
+test.py
 __pycache__
 
