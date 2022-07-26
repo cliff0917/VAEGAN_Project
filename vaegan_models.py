@@ -20,8 +20,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import logging
 from tqdm import tqdm
-import data_utils
-import classifier
+import others.data_utils as data_utils
+import others.classifier as classifier
 
 # os.environ["CUDA_VISIBLE_DEVICES"]="1"
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")

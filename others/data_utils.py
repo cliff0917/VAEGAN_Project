@@ -45,10 +45,10 @@ class CustomTensorDataset(TensorDataset):
 class DATA_LOADER(object):
     def __init__(self, config):
         self.config = config
-        matcontent = sio.loadmat('mat/' + self.config['dataset'] + '/' + 'resnet.mat')
+        matcontent = sio.loadmat('other_mats/' + self.config['dataset'] + '/' + 'resnet.mat')
         feature = matcontent['features'].T
         label = matcontent['labels'].astype(int).squeeze() - 1
-        matcontent = sio.loadmat('mat/' + self.config['dataset'] + '/' + 'attr.mat')
+        matcontent = sio.loadmat('other_mats/' + self.config['dataset'] + '/' + 'attr.mat')
         trainval_loc = matcontent['trainval_loc'].squeeze() - 1
         train_loc = matcontent['train_loc'].squeeze() - 1
         val_unseen_loc = matcontent['val_loc'].squeeze() - 1

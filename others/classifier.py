@@ -7,7 +7,7 @@ from torch.autograd import Variable
 import torch.optim as optim
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
-import data_utils as util
+import others.data_utils as util
 import sys
 import copy
 import pdb
