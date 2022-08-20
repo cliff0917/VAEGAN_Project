@@ -4,6 +4,14 @@
 
 ## Setup
 
+## Get Encoder
+
+```
+step 1: 先將 p-learning 產生的 .mat 放到 other_mats/$dataset/ 中
+step 2: 在 ./scripts/origin_scripts/ 中新增 $dataset.sh(可參考其他 .sh 的設定)
+step 3: 執行 ./scripts/origin_scripts/$datasets.sh
+```
+
 ## ESZSL
 
 
